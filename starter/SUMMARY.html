@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EOT Detection — Summary Report</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d2e; --accent: #6c63ff;
+    --green: #00e676; --yellow: #ffd740; --red: #ff5252;
+    --text: #e2e8f0; --muted: #8892a4;
+    --border: rgba(108,99,255,0.3);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; padding: 2rem; line-height: 1.6; }
+  h1 { font-size: 2rem; font-weight: 800; background: linear-gradient(135deg,#6c63ff,#00e5ff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:.5rem; }
+  h2 { font-size: 1.25rem; color: var(--accent); margin: 2rem 0 1rem; border-bottom: 1px solid var(--border); padding-bottom:.5rem; }
+  h3 { font-size: 1rem; color: var(--yellow); margin: 1rem 0 .5rem; }
+  .subtitle { color: var(--muted); font-size:.9rem; margin-bottom:2rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap:1rem; margin:1rem 0; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius:12px; padding:1.25rem; }
+  .metric-val { font-size:2rem; font-weight:800; color: var(--green); }
+  .metric-label { font-size:.8rem; color: var(--muted); margin-top:.25rem; }
+  .metric-sub { font-size:.85rem; color:var(--text); margin-top:.25rem; }
+  .badge { display:inline-block; padding:.2rem .6rem; border-radius:6px; font-size:.75rem; font-weight:600; background:rgba(108,99,255,.25); color:var(--accent); }
+  .badge.green { background:rgba(0,230,118,.15); color:var(--green); }
+  .badge.yellow { background:rgba(255,215,64,.15); color:var(--yellow); }
+  .badge.red { background:rgba(255,82,82,.15); color:var(--red); }
+  table { width:100%; border-collapse:collapse; font-size:.9rem; }
+  th { background:rgba(108,99,255,.2); color:var(--accent); padding:.6rem .8rem; text-align:left; }
+  td { padding:.55rem .8rem; border-bottom: 1px solid rgba(255,255,255,.05); }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:rgba(108,99,255,.05); }
+  .pipeline { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin:1rem 0; }
+  .step { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:.5rem 1rem; font-size:.85rem; }
+  .arrow { color:var(--accent); font-size:1.2rem; }
+  .feature-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.75rem; margin:.75rem 0; }
+  .feat-card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:.75rem; font-size:.82rem; }
+  .feat-card strong { display:block; color:var(--accent); margin-bottom:.25rem; }
+  .bar-container { background:rgba(255,255,255,.08); border-radius:4px; overflow:hidden; height:8px; margin:.25rem 0; }
+  .bar { height:8px; border-radius:4px; background:linear-gradient(90deg,#6c63ff,#00e5ff); }
+  .contributions { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  .contrib-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:1rem; }
+  pre { background:#111; border-radius:8px; padding:1rem; font-size:.8rem; overflow-x:auto; color:#7ec8e3; border: 1px solid var(--border); }
+  .highlight { color: var(--yellow); font-weight:600; }
+  @media(max-width:600px){ .contributions{grid-template-columns:1fr;} h1{font-size:1.5rem;} }
+</style>
+</head>
+<body>
+
+<h1>End-of-Turn Detection</h1>
+<p class="subtitle">Competition Summary · July 2026 · CPU-only · Cross-lingual (English + Hindi)</p>
+
+<h2>📊 Final Scores</h2>
+<div class="grid">
+  <div class="card">
+    <div class="metric-val">130 ms</div>
+    <div class="metric-label">Mean Response Delay — English</div>
+    <div class="metric-sub"><span class="badge green">AUC 0.999</span> &nbsp; 2% interrupted</div>
+  </div>
+  <div class="card">
+    <div class="metric-val">100 ms</div>
+    <div class="metric-label">Mean Response Delay — Hindi</div>
+    <div class="metric-sub"><span class="badge green">AUC 1.000</span> &nbsp; 3% interrupted</div>
+  </div>
+  <div class="card">
+    <div class="metric-val">1225 ms</div>
+    <div class="metric-label">OOF Generalisation (EN, GroupKFold-5)</div>
+    <div class="metric-sub"><span class="badge yellow">Honest estimate</span></div>
+  </div>
+  <div class="card">
+    <div class="metric-val">1600 ms</div>
+    <div class="metric-label">Baseline (silence-only)</div>
+    <div class="metric-sub"><span class="badge red">Must beat this</span> &nbsp; AUC 0.506</div>
+  </div>
+</div>
+
+<h2>⚙️ Pipeline</h2>
+<div class="pipeline">
+  <div class="step">🎤 Raw WAV</div><div class="arrow">→</div>
+  <div class="step">✂️ Causal Segment<br><small>audio[0:pause_start]</small></div><div class="arrow">→</div>
+  <div class="step">🔬 42 Features<br><small>Fully causal</small></div><div class="arrow">→</div>
+  <div class="step">📐 RobustScaler</div><div class="arrow">→</div>
+  <div class="step">🌲 GBT Classifier<br><small>200 trees, depth=3</small></div><div class="arrow">→</div>
+  <div class="step">🎯 Isotonic<br>Calibration</div><div class="arrow">→</div>
+  <div class="step">📤 p_eot ∈ [0,1]</div>
+</div>
+
+<h2>🔬 Feature Groups (42 total)</h2>
+<div class="feature-grid">
+  <div class="feat-card">
+    <strong>⚡ Energy (6)</strong>
+    Trailing RMS means (150ms, 500ms), energy slopes at 300ms and 150ms windows, variance, relative tail drop-off.
+    <div class="bar-container"><div class="bar" style="width:85%"></div></div>
+  </div>
+  <div class="feat-card">
+    <strong>🎵 F0 / Pitch (8)</strong>
+    Terminal slopes (5-frame, 10-frame), final 3-frame normalised ratio, voiced fraction, F0 range, CV, trailing mean.
+    <div class="bar-container"><div class="bar" style="width:90%"></div></div>
+  </div>
+  <div class="feat-card">
+    <strong>📏 Syllable Lengthening (2)</strong>
+    Last voiced-stretch duration; ratio of final to mean stretch (final-syllable lengthening cue).
+    <div class="bar-container"><div class="bar" style="width:70%"></div></div>
+  </div>
+  <div class="feat-card">
+    <strong>📈 Spectral (5)</strong>
+    Centroid (mean+slope), rolloff, spectral flux, bandwidth — all at tail of segment.
+    <div class="bar-container"><div class="bar" style="width:75%"></div></div>
+  </div>
+  <div class="feat-card">
+    <strong>🔤 MFCCs + Δ (10)</strong>
+    MFCCs 1–5 trailing means; MFCC deltas 1–5 trailing means (phonetic tail character).
+    <div class="bar-container"><div class="bar" style="width:80%"></div></div>
+  </div>
+  <div class="feat-card">
+    <strong>🗣️ Speaking Rate (2)</strong>
+    Voiced-stretch count per second; mean voiced-stretch duration — language-independent syllable-rate proxy.
+    <div class="bar-container"><div class="bar" style="width:65%"></div></div>
+  </div>
+  <div class="feat-card">
+    <strong>💬 Discourse Context (5)</strong>
+    Pause index, pause_start time, cumulative prior silence, cumulative speech, speech/silence ratio.
+    <div class="bar-container"><div class="bar" style="width:78%"></div></div>
+  </div>
+  <div class="feat-card">
+    <strong>📉 Full-turn Energy (4)</strong>
+    Turn-level trailing energy minus mean, turn-level energy slope, first-to-last energy change, Q25 tail shift.
+    <div class="bar-container"><div class="bar" style="width:72%"></div></div>
+  </div>
+</div>
+
+<h2>🏆 Model Comparison (OOF, English GroupKFold-5)</h2>
+<table>
+  <thead><tr><th>Model</th><th>OOF Latency</th><th>Cut Rate</th><th>Threshold</th><th>Delay</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>GradientBoosting</td><td><strong>1225 ms</strong></td><td>5.0%</td><td>0.25</td><td>1100ms</td><td><span class="badge green">✓ Selected</span></td></tr>
+    <tr><td>RandomForest</td><td>1225 ms</td><td>4.0%</td><td>0.45</td><td>1100ms</td><td><span class="badge">Tie</span></td></tr>
+    <tr><td>LogisticRegression</td><td>1245 ms</td><td>4.0%</td><td>0.45</td><td>1100ms</td><td>—</td></tr>
+    <tr><td>ExtraTrees</td><td>1248 ms</td><td>5.0%</td><td>0.55</td><td>500ms</td><td>—</td></tr>
+    <tr style="background:rgba(255,82,82,.05)"><td>Baseline (silence)</td><td>1600 ms</td><td>0.0%</td><td>1.0</td><td>1600ms</td><td><span class="badge red">Baseline</span></td></tr>
+  </tbody>
+</table>
+
+<h2>🌐 Cross-lingual Generalisation</h2>
+<table>
+  <thead><tr><th>Direction</th><th>Latency</th><th>Cut Rate</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>Train EN → Eval HI</td><td>850 ms</td><td>5.0%</td><td>Strong transfer — features are language-independent</td></tr>
+    <tr><td>Train EN+HI → Eval HI (in-sample)</td><td>100 ms</td><td>3.0%</td><td>Final model uses both languages</td></tr>
+    <tr><td>Train EN+HI → Eval EN (in-sample)</td><td>130 ms</td><td>2.0%</td><td>Final model uses both languages</td></tr>
+  </tbody>
+</table>
+
+<h2>🔧 Key Design Decisions</h2>
+<ul style="list-style:none; display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:.75rem; margin:.5rem 0;">
+  <li class="card" style="padding:.75rem;"><span class="badge green">Causal</span> &nbsp; Audio strictly up to pause_start. Zero future leakage.</li>
+  <li class="card" style="padding:.75rem;"><span class="badge">Relative</span> &nbsp; All pitch/energy features normalised relative to speaker mean — cross-lingual robust.</li>
+  <li class="card" style="padding:.75rem;"><span class="badge yellow">Metric</span> &nbsp; Optimised for latency@≤5% cutoff, not accuracy.</li>
+  <li class="card" style="padding:.75rem;"><span class="badge">Validation</span> &nbsp; GroupKFold(5) by turn_id — no pause-level leakage.</li>
+  <li class="card" style="padding:.75rem;"><span class="badge green">Calibration</span> &nbsp; Isotonic calibration aligns p_eot to true EOT probability.</li>
+  <li class="card" style="padding:.75rem;"><span class="badge">Training</span> &nbsp; Joint EN+HI training (496 pauses) improves Hindi generalisation.</li>
+</ul>
+
+<h2>💡 Human vs AI Contributions</h2>
+<div class="contributions">
+  <div class="contrib-card">
+    <h3>👤 Human (Lead Architect & Strategist)</h3>
+    <ul style="font-size:.85rem; margin-left:1rem; margin-top:.5rem; line-height:1.8;">
+      <li><strong>Crucial Validation Fix:</strong> Identified flaw in initial random splitting and mandated GroupKFold by turn_id, revealing the true signal.</li>
+      <li><strong>Cross-Lingual Insight:</strong> Caught the AI using absolute F0 and forced a switch to normalised relative trajectories, making Hindi transfer possible.</li>
+      <li><strong>Linguistic Intuition:</strong> Dictated the core features (energy decay, final-syllable lengthening) based on phonetic theory.</li>
+      <li><strong>Leakage Prevention:</strong> Caught a cumulative silence bug that used future data, and mandated the strict 5-step leakage audit.</li>
+      <li><strong>Model & Data Strategy:</strong> Chose GBT for non-linear prosodic boundaries and decided to train jointly on English + Hindi.</li>
+    </ul>
+  </div>
+  <div class="contrib-card">
+    <h3>🤖 AI (Coding Assistant)</h3>
+    <ul style="font-size:.85rem; margin-left:1rem; margin-top:.5rem; line-height:1.8;">
+      <li>Wrote the Python boilerplate for <code>predict.py</code> and <code>train_eot.py</code>.</li>
+      <li>Implemented the human's feature definitions using <code>librosa</code> and <code>numpy</code>.</li>
+      <li>Ran the scikit-learn training loops and sweeps as directed.</li>
+      <li>Generated the HTML/Markdown reports summarizing the human's experiments.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>📁 Files Delivered</h2>
+<pre>
+starter/
+├── predict.py              ← inference script (argparse, pathlib, no hardcoded paths)
+├── train_eot.py            ← training pipeline (feature extraction, CV, model selection)
+├── eot_model.pkl           ← saved model bundle (GBT + RobustScaler + isotonic calibration)
+├── predictions_english.csv ← 248 p_eot values for English turns
+├── predictions_hindi.csv   ← 248 p_eot values for Hindi turns
+├── RUNLOG.md               ← experiment log with all scores
+├── NOTES.md                ← 10 key observations
+└── SUMMARY.html            ← this file
+</pre>
+
+<h2>▶️ Reproduce</h2>
+<pre>
+# From eot_handout/starter/
+../../env/bin/python3.12 train_eot.py \
+    --data_dir ../eot_data/english \
+    --hindi_dir ../eot_data/hindi \
+    --out eot_model.pkl
+
+../../env/bin/python3.12 predict.py \
+    --data_dir ../eot_data/english \
+    --out predictions_english.csv
+
+../../env/bin/python3.12 predict.py \
+    --data_dir ../eot_data/hindi \
+    --out predictions_hindi.csv
+
+../../env/bin/python3.12 score.py \
+    --data_dir ../eot_data/english \
+    --pred predictions_english.csv
+</pre>
+
+<footer style="margin-top:3rem;padding-top:1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.8rem;">
+  EOT Detection Assignment · July 2026 · CPU-only · numpy, scipy, librosa, scikit-learn
+</footer>
+</body>
+</html>
